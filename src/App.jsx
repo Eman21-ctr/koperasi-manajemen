@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from './lib/firebase.js'; // Diperbaiki
+import { auth } from './lib/firebase.js';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { 
     collection, 
     query, 
@@ -34,6 +36,30 @@ const App = () => {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [selectedLoanId, setSelectedLoanId] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState(null);
+
+  // Auto login dengan Firebase Authentication
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    if (currentUser) {
+      setUser(currentUser);
+      setAuthLoading(false);
+    } else {
+      // Jika belum login, login otomatis sebagai anonymous
+      signInAnonymously(auth)
+        .then(() => {
+          console.log('Auto login berhasil');
+        })
+        .catch((error) => {
+          console.error('Auto login gagal:', error);
+          setAuthLoading(false);
+        });
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     setLoading(true);
@@ -201,7 +227,7 @@ const updateMember = useCallback(async (memberId, updatedData) => {
   const selectedLoanPayments = loanPayments.filter(p => p.loanId === selectedLoanId);
 
   const renderContent = () => {
-    if (loading) {
+    if (loading || authLoading) {
       return (<div className="flex justify-center items-center h-[calc(100vh-68px)]"><div className="text-xl font-semibold text-gray-700">Memuat data dari database...</div></div>);
     }
     switch (view) {
